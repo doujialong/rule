@@ -57,6 +57,7 @@
       {"ip_is_private": true, "outbound": "🎯 全球直连"},
       {"clash_mode": "direct", "outbound": "🎯 全球直连"},
       {"clash_mode": "global", "outbound": "GLOBAL"},
+      {"domain_suffix": ["cn", "samsung.com", "samsungapps.com", "samsungcloud.com", "samsungapis.com", "samsungcloudcn.com", "kugou.com", "kgimg.com", "kugou.net"], "outbound": "🎯 全球直连"},
       {"domain_suffix": ["youtubekids.com", "youtubei.googleapis.com", "youtube.googleapis.com"], "outbound": "🧒 YouTube Kids"},
       {"domain": ["kids.youtube.com"], "outbound": "🧒 YouTube Kids"},
       {"rule_set": "geosite-ai", "outbound": "🧠 AI"},
