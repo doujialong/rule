@@ -61,6 +61,7 @@
       {"clash_mode": "direct", "outbound": "🎯 全球直连"},
       {"clash_mode": "global", "outbound": "GLOBAL"},
       {"port": [21115, 21116, 21117, 21118, 21119], "outbound": "🎯 全球直连"},
+      {"port": [82], "outbound": "🎯 全球直连"},
       {"domain_suffix": ["cn", "samsung.com", "samsungapps.com", "samsungcloud.com", "samsungapis.com", "samsungcloudcn.com", "galaxyappstore.com", "kugou.com", "kgimg.com", "kugou.net", "dnsv1.com", "tdnsstic1.cn", "tdnsv5.com", "wswebcdn.com", "wsglb0.com", "snssdk.com", "bytedns1.com", "kunluncan.com", "queniukw.com", "gmliv.top", "yuanbaotv.com", "ottcn.com", "chinamobile.com", "cdnhwc1.com", "cdnhwc2.com", "dbankcdn.com", "ks-cdn.com", "ksyuncdn.com", "163jiasu.com", "cdngslb.com", "jomodns.com", "qiniu.com", "qiniudns.com", "volcgslb.com", "volcgtm.com", "xunlei.com", "tbcache.com", "dnse5.com", "aliyuncs.com", "rustdesk.com", "rustdesk.io", "fnnas.com", "prodregistryv2.org", "tencentmusic.com", "qq.com", "gtimg.cn", "gtimg.com", "gdtimg.com", "tencent.com", "myqcloud.com", "qpic.cn", "qpic.com", "tencent-cloud.net"], "outbound": "🎯 全球直连"},
       {"domain_suffix": ["youtubekids.com", "youtubei.googleapis.com", "youtube.googleapis.com"], "outbound": "🧒 YouTube Kids"},
       {"domain": ["kids.youtube.com"], "outbound": "🧒 YouTube Kids"},
