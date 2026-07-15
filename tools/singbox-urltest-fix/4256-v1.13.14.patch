@@ -1,0 +1,69 @@
+diff --git a/common/urltest/urltest.go b/common/urltest/urltest.go
+index 29d790e4..f01ecf58 100644
+--- a/common/urltest/urltest.go
++++ b/common/urltest/urltest.go
+@@ -97,6 +97,11 @@ func URLTest(ctx context.Context, link string, detour N.Dialer) (t uint16, err e
+ 		return
+ 	}
+ 	defer instance.Close()
++	// Set hard read deadline: context cancellation does not interrupt
++	// net.Conn.Read() on connections from custom DialContext.
++	// Use relative timeout (not ctx.Deadline) because the context
++	// deadline includes DialContext time already consumed.
++	instance.SetReadDeadline(time.Now().Add(C.TCPTimeout))
+ 	if N.NeedHandshakeForWrite(instance) {
+ 		start = time.Now()
+ 	}
+diff --git a/protocol/group/urltest.go b/protocol/group/urltest.go
+index 730040f7..1caa380e 100644
+--- a/protocol/group/urltest.go
++++ b/protocol/group/urltest.go
+@@ -368,7 +368,7 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
+ 		return result, nil
+ 	}
+ 	defer g.checking.Store(false)
+-	b, _ := batch.New(ctx, batch.WithConcurrencyNum[any](10))
++	b, batchCtx := batch.New(ctx, batch.WithConcurrencyNum[any](10))
+ 	checked := make(map[string]bool)
+ 	var resultAccess sync.Mutex
+ 	for _, detour := range g.outbounds {
+@@ -387,7 +387,7 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
+ 			continue
+ 		}
+ 		b.Go(realTag, func() (any, error) {
+-			testCtx, cancel := context.WithTimeout(g.ctx, C.TCPTimeout)
++			testCtx, cancel := context.WithTimeout(batchCtx, C.TCPTimeout)
+ 			defer cancel()
+ 			t, err := urltest.URLTest(testCtx, g.link, p)
+ 			if err != nil {
+@@ -406,7 +406,29 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
+ 			return nil, nil
+ 		})
+ 	}
+-	b.Wait()
++	waitDone := make(chan struct{})
++	go func() {
++		b.Wait()
++		close(waitDone)
++	}()
++	timer := time.NewTimer(2 * C.TCPTimeout)
++	defer timer.Stop()
++	var timedOut bool
++	select {
++	case <-waitDone:
++	case <-timer.C:
++		timedOut = true
++		g.logger.Debug("urltest batch timed out, proceeding with available results")
++	}
++	if timedOut {
++		resultAccess.Lock()
++		for tag := range checked {
++			if _, ok := result[tag]; !ok {
++				g.history.DeleteURLTestHistory(tag)
++			}
++		}
++		resultAccess.Unlock()
++	}
+ 	g.performUpdateCheck()
+ 	return result, nil
+ }
