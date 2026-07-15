@@ -1,0 +1,369 @@
+diff --git a/protocol/group/urltest.go b/protocol/group/urltest.go
+index 1caa380e..fdfe8326 100644
+--- a/protocol/group/urltest.go
++++ b/protocol/group/urltest.go
+@@ -196,6 +196,7 @@ type URLTestGroup struct {
+ 	tolerance                    uint16
+ 	idleTimeout                  time.Duration
+ 	history                      adapter.URLTestHistoryStorage
++	quality                      *urlTestQualityTracker
+ 	checking                     atomic.Bool
+ 	selectedOutboundTCP          adapter.Outbound
+ 	selectedOutboundUDP          adapter.Outbound
+@@ -239,6 +240,7 @@ func NewURLTestGroup(ctx context.Context, outboundManager adapter.OutboundManage
+ 		tolerance:                    tolerance,
+ 		idleTimeout:                  idleTimeout,
+ 		history:                      history,
++		quality:                      newURLTestQualityTracker(),
+ 		close:                        make(chan struct{}),
+ 		pause:                        service.FromContext[pause.Manager](ctx),
+ 		interruptGroup:               interrupt.NewGroup(),
+@@ -290,16 +292,16 @@ func (g *URLTestGroup) Select(network string) (adapter.Outbound, bool) {
+ 	switch network {
+ 	case N.NetworkTCP:
+ 		if g.selectedOutboundTCP != nil {
+-			if history := g.history.LoadURLTestHistory(RealTag(g.selectedOutboundTCP)); history != nil {
++			if delay, available := g.selectionDelay(g.selectedOutboundTCP); available {
+ 				minOutbound = g.selectedOutboundTCP
+-				minDelay = history.Delay
++				minDelay = delay
+ 			}
+ 		}
+ 	case N.NetworkUDP:
+ 		if g.selectedOutboundUDP != nil {
+-			if history := g.history.LoadURLTestHistory(RealTag(g.selectedOutboundUDP)); history != nil {
++			if delay, available := g.selectionDelay(g.selectedOutboundUDP); available {
+ 				minOutbound = g.selectedOutboundUDP
+-				minDelay = history.Delay
++				minDelay = delay
+ 			}
+ 		}
+ 	}
+@@ -307,12 +309,12 @@ func (g *URLTestGroup) Select(network string) (adapter.Outbound, bool) {
+ 		if !common.Contains(detour.Network(), network) {
+ 			continue
+ 		}
+-		history := g.history.LoadURLTestHistory(RealTag(detour))
+-		if history == nil {
++		delay, available := g.selectionDelay(detour)
++		if !available {
+ 			continue
+ 		}
+-		if minDelay == 0 || minDelay > history.Delay+g.tolerance {
+-			minDelay = history.Delay
++		if minDelay == 0 || uint32(minDelay) > uint32(delay)+uint32(g.tolerance) {
++			minDelay = delay
+ 			minOutbound = detour
+ 		}
+ 	}
+@@ -328,6 +330,20 @@ func (g *URLTestGroup) Select(network string) (adapter.Outbound, bool) {
+ 	return minOutbound, true
+ }
+ 
++func (g *URLTestGroup) selectionDelay(detour adapter.Outbound) (uint16, bool) {
++	realTag := RealTag(detour)
++	if g.quality != nil {
++		if score, available, loaded := g.quality.score(realTag); loaded {
++			return score, available
++		}
++	}
++	history := g.history.LoadURLTestHistory(realTag)
++	if history == nil {
++		return 0, false
++	}
++	return history.Delay, true
++}
++
+ func (g *URLTestGroup) loopCheck(ticker *time.Ticker, closeChan <-chan struct{}) {
+ 	if time.Since(g.lastActive.Load()) > g.interval {
+ 		g.lastActive.Store(time.Now())
+@@ -368,8 +384,12 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
+ 		return result, nil
+ 	}
+ 	defer g.checking.Store(false)
+-	b, batchCtx := batch.New(ctx, batch.WithConcurrencyNum[any](10))
++	cycleCtx, cancelCycle := context.WithCancel(ctx)
++	defer cancelCycle()
++	b, batchCtx := batch.New(cycleCtx, batch.WithConcurrencyNum[any](10))
+ 	checked := make(map[string]bool)
++	completed := make(map[string]bool)
++	var expired atomic.Bool
+ 	var resultAccess sync.Mutex
+ 	for _, detour := range g.outbounds {
+ 		tag := detour.Tag()
+@@ -377,8 +397,7 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
+ 		if checked[realTag] {
+ 			continue
+ 		}
+-		history := g.history.LoadURLTestHistory(realTag)
+-		if !force && history != nil && time.Since(history.Time) < g.interval {
++		if !force && g.quality.fresh(realTag, g.interval) {
+ 			continue
+ 		}
+ 		checked[realTag] = true
+@@ -390,18 +409,24 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
+ 			testCtx, cancel := context.WithTimeout(batchCtx, C.TCPTimeout)
+ 			defer cancel()
+ 			t, err := urltest.URLTest(testCtx, g.link, p)
++			resultAccess.Lock()
++			defer resultAccess.Unlock()
++			if expired.Load() {
++				return nil, nil
++			}
++			completed[realTag] = true
+ 			if err != nil {
+ 				g.logger.Debug("outbound ", tag, " unavailable: ", err)
++				g.quality.recordFailure(realTag)
+ 				g.history.DeleteURLTestHistory(realTag)
+ 			} else {
+ 				g.logger.Debug("outbound ", tag, " available: ", t, "ms")
++				g.quality.recordSuccess(realTag, t)
+ 				g.history.StoreURLTestHistory(realTag, &adapter.URLTestHistory{
+ 					Time:  time.Now(),
+ 					Delay: t,
+ 				})
+-				resultAccess.Lock()
+ 				result[tag] = t
+-				resultAccess.Unlock()
+ 			}
+ 			return nil, nil
+ 		})
+@@ -418,13 +443,16 @@ func (g *URLTestGroup) urlTest(ctx context.Context, force bool) (map[string]uint
+ 	case <-waitDone:
+ 	case <-timer.C:
+ 		timedOut = true
++		expired.Store(true)
++		cancelCycle()
+ 		g.logger.Debug("urltest batch timed out, proceeding with available results")
+ 	}
+ 	if timedOut {
+ 		resultAccess.Lock()
+-		for tag := range checked {
+-			if _, ok := result[tag]; !ok {
+-				g.history.DeleteURLTestHistory(tag)
++		for realTag := range checked {
++			if !completed[realTag] {
++				g.quality.recordFailure(realTag)
++				g.history.DeleteURLTestHistory(realTag)
+ 			}
+ 		}
+ 		resultAccess.Unlock()
+diff --git a/protocol/group/urltest_quality.go b/protocol/group/urltest_quality.go
+new file mode 100644
+index 00000000..47004b9a
+--- /dev/null
++++ b/protocol/group/urltest_quality.go
+@@ -0,0 +1,124 @@
++package group
++
++import (
++	"sort"
++	"sync"
++	"time"
++)
++
++const (
++	urlTestQualityWindowSize        = 5
++	urlTestQualityFailurePenalty    = 1000
++	urlTestQualityFailureThreshold  = 2
++	urlTestQualityRecoveryThreshold = 3
++)
++
++type urlTestQualitySample struct {
++	delay   uint16
++	success bool
++}
++
++type urlTestQualityState struct {
++	samples              []urlTestQualitySample
++	consecutiveFailures  int
++	consecutiveSuccesses int
++	quarantined          bool
++	updatedAt            time.Time
++}
++
++type urlTestQualityTracker struct {
++	access sync.Mutex
++	states map[string]*urlTestQualityState
++}
++
++func newURLTestQualityTracker() *urlTestQualityTracker {
++	return &urlTestQualityTracker{states: make(map[string]*urlTestQualityState)}
++}
++
++func (t *urlTestQualityTracker) recordSuccess(tag string, delay uint16) {
++	if delay == 0 {
++		delay = 1
++	}
++	t.access.Lock()
++	defer t.access.Unlock()
++	state := t.state(tag)
++	state.append(urlTestQualitySample{delay: delay, success: true})
++	state.updatedAt = time.Now()
++	state.consecutiveFailures = 0
++	state.consecutiveSuccesses++
++	if state.quarantined && state.consecutiveSuccesses >= urlTestQualityRecoveryThreshold {
++		state.quarantined = false
++	}
++}
++
++func (t *urlTestQualityTracker) recordFailure(tag string) {
++	t.access.Lock()
++	defer t.access.Unlock()
++	state := t.state(tag)
++	state.append(urlTestQualitySample{})
++	state.updatedAt = time.Now()
++	state.consecutiveSuccesses = 0
++	state.consecutiveFailures++
++	if state.consecutiveFailures >= urlTestQualityFailureThreshold {
++		state.quarantined = true
++	}
++}
++
++func (t *urlTestQualityTracker) fresh(tag string, interval time.Duration) bool {
++	t.access.Lock()
++	defer t.access.Unlock()
++	state := t.states[tag]
++	return state != nil && !state.updatedAt.IsZero() && time.Since(state.updatedAt) < interval
++}
++
++func (t *urlTestQualityTracker) score(tag string) (score uint16, available bool, loaded bool) {
++	t.access.Lock()
++	defer t.access.Unlock()
++	state, loaded := t.states[tag]
++	if !loaded {
++		return 0, false, false
++	}
++	if state.quarantined {
++		return 0, false, true
++	}
++	delays := make([]uint16, 0, len(state.samples))
++	failures := 0
++	for _, sample := range state.samples {
++		if sample.success {
++			delays = append(delays, sample.delay)
++		} else {
++			failures++
++		}
++	}
++	if len(delays) == 0 {
++		return 0, false, true
++	}
++	sort.Slice(delays, func(i, j int) bool { return delays[i] < delays[j] })
++	median := uint32(delays[len(delays)/2])
++	if len(delays)%2 == 0 {
++		median = (uint32(delays[len(delays)/2-1]) + median) / 2
++	}
++	tail := uint32(delays[len(delays)-1])
++	qualityScore := median + 2*(tail-median) + uint32(failures*urlTestQualityFailurePenalty)
++	if qualityScore > uint32(^uint16(0)) {
++		qualityScore = uint32(^uint16(0))
++	}
++	return uint16(qualityScore), true, true
++}
++
++func (t *urlTestQualityTracker) state(tag string) *urlTestQualityState {
++	state := t.states[tag]
++	if state == nil {
++		state = new(urlTestQualityState)
++		t.states[tag] = state
++	}
++	return state
++}
++
++func (s *urlTestQualityState) append(sample urlTestQualitySample) {
++	s.samples = append(s.samples, sample)
++	if len(s.samples) > urlTestQualityWindowSize {
++		copy(s.samples, s.samples[len(s.samples)-urlTestQualityWindowSize:])
++		s.samples = s.samples[:urlTestQualityWindowSize]
++	}
++}
+diff --git a/protocol/group/urltest_quality_test.go b/protocol/group/urltest_quality_test.go
+new file mode 100644
+index 00000000..ef42ac09
+--- /dev/null
++++ b/protocol/group/urltest_quality_test.go
+@@ -0,0 +1,83 @@
++package group
++
++import (
++	"testing"
++	"time"
++)
++
++func TestURLTestQualityStableScore(t *testing.T) {
++	tracker := newURLTestQualityTracker()
++	for _, delay := range []uint16{100, 110, 90, 105, 95} {
++		tracker.recordSuccess("stable", delay)
++	}
++	score, available, loaded := tracker.score("stable")
++	if !loaded || !available {
++		t.Fatal("stable node should be available")
++	}
++	if score != 120 {
++		t.Fatalf("unexpected stable score: %d", score)
++	}
++}
++
++func TestURLTestQualityPenalizesJitter(t *testing.T) {
++	tracker := newURLTestQualityTracker()
++	for _, delay := range []uint16{100, 105, 100, 500, 100} {
++		tracker.recordSuccess("jitter", delay)
++	}
++	score, available, _ := tracker.score("jitter")
++	if !available {
++		t.Fatal("jittery node should remain available")
++	}
++	if score != 900 {
++		t.Fatalf("unexpected jitter score: %d", score)
++	}
++}
++
++func TestURLTestQualityRollingWindow(t *testing.T) {
++	tracker := newURLTestQualityTracker()
++	tracker.recordSuccess("rolling", 1000)
++	for range urlTestQualityWindowSize {
++		tracker.recordSuccess("rolling", 100)
++	}
++	score, available, _ := tracker.score("rolling")
++	if !available || score != 100 {
++		t.Fatalf("old sample should leave rolling window, score=%d available=%v", score, available)
++	}
++}
++
++func TestURLTestQualityQuarantineAndRecovery(t *testing.T) {
++	tracker := newURLTestQualityTracker()
++	tracker.recordSuccess("flaky", 100)
++	tracker.recordFailure("flaky")
++	score, available, _ := tracker.score("flaky")
++	if !available || score != 1100 {
++		t.Fatalf("one failure should penalize without quarantine, score=%d available=%v", score, available)
++	}
++	tracker.recordFailure("flaky")
++	if _, available, _ = tracker.score("flaky"); available {
++		t.Fatal("two consecutive failures should quarantine")
++	}
++	tracker.recordSuccess("flaky", 90)
++	tracker.recordSuccess("flaky", 95)
++	if _, available, _ = tracker.score("flaky"); available {
++		t.Fatal("quarantine should require three consecutive successes")
++	}
++	tracker.recordSuccess("flaky", 100)
++	if _, available, _ = tracker.score("flaky"); !available {
++		t.Fatal("three consecutive successes should recover")
++	}
++}
++
++func TestURLTestQualityMissingState(t *testing.T) {
++	tracker := newURLTestQualityTracker()
++	if _, available, loaded := tracker.score("missing"); loaded || available {
++		t.Fatal("missing state should fall back to raw URLTest history")
++	}
++	if tracker.fresh("missing", time.Minute) {
++		t.Fatal("missing state should not be fresh")
++	}
++	tracker.recordSuccess("present", 100)
++	if !tracker.fresh("present", time.Minute) {
++		t.Fatal("new quality sample should be fresh")
++	}
++}
