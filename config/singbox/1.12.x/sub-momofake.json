@@ -12,6 +12,7 @@
       {"clash_mode": "global", "server": "fakeip"},
       {"query_type": "HTTPS", "action": "reject"},
       {"rule_set": "geosite-fakeipfilter", "server": "local"},
+      {"domain_suffix": ["6y9o8.no-mad-sub.one", "dash.knjc.cfd", "dash.pqjc.site", "panel.yins.win", "sni.868001.xyz", "zp1fp.no-mad-sub.one"], "server": "local"},
       {"domain_suffix": ["xn--ngstr-lra8j.com"], "server": "local"},
       {"domain_suffix": ["quark.cn", "myquark.cn", "uc.cn", "ucweb.com", "ucbrowser.com", "alibabacorp.com", "alibaba-inc.com", "alibabadns.com", "alikunlun.com", "effirst.com", "qianwen.com"], "query_type": "AAAA", "action": "predefined", "rcode": "NOERROR", "answer": []},
       {"domain_suffix": ["taobao.com", "tmall.com", "tmall.hk", "tbcdn.cn", "tbcdn.com", "alicdn.com", "alibaba.com", "alibabacloud.com", "alibaba-inc.com", "aliyun.com", "aliyuncs.com", "alipay.com", "alipayobjects.com", "mmstat.com", "alimama.com", "tanx.com", "etao.com", "cainiao.com", "dingtalk.com", "dingtalkapps.com", "youku.com", "tudou.com", "ykimg.com", "ucweb.com", "ucbrowser.com", "quark.cn", "myquark.cn", "uc.cn", "alibabacorp.com", "alibabadns.com", "alikunlun.com", "effirst.com", "qianwen.com", "amap.com", "autonavi.com", "ele.me", "elemecdn.com", "koubei.com", "fliggy.com", "goofish.com", "xianyu.mobi"], "server": "local"},
