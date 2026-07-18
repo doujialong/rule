@@ -67,6 +67,7 @@
       {"inbound": "dns-in", "action": "hijack-dns"},
       {"ip_is_private": true, "outbound": "🎯 全球直连"},
       {"rule_set": "geosite-private", "outbound": "🎯 全球直连"},
+      {"domain_suffix": ["6y9o8.no-mad-sub.one", "dash.knjc.cfd", "dash.pqjc.site", "panel.yins.win", "sni.868001.xyz", "zp1fp.no-mad-sub.one"], "outbound": "🎯 全球直连"},
       {"clash_mode": "direct", "outbound": "🎯 全球直连"},
       {"clash_mode": "global", "outbound": "GLOBAL"},
       {"network": "udp", "port": 443, "rule_set": "geosite-google", "action": "reject"},
