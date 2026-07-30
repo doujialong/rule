@@ -10,7 +10,7 @@
     "rules": [
       {"clash_mode": "direct", "server": "local"},
       {"clash_mode": "global", "server": "fakeip"},
-      {"query_type": "HTTPS", "action": "reject"},
+      {"query_type": "HTTPS", "action": "route", "server": "node_dns"},
       {"rule_set": "geosite-fakeipfilter", "server": "local"},
       {"domain_suffix": ["6y9o8.no-mad-sub.one", "dash.knjc.cfd", "dash.pqjc.site", "panel.yins.win", "sni.868001.xyz", "zp1fp.no-mad-sub.one"], "server": "local"},
       {"domain_suffix": ["xn--ngstr-lra8j.com"], "server": "local"},
