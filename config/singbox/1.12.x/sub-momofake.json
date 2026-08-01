@@ -10,6 +10,7 @@
     "rules": [
       {"clash_mode": "direct", "server": "local"},
       {"clash_mode": "global", "server": "fakeip"},
+      {"rule_set": "adblock-oisd-small", "action": "predefined", "rcode": "NXDOMAIN"},
       {"query_type": "HTTPS", "action": "route", "server": "node_dns"},
       {"rule_set": "geosite-fakeipfilter", "server": "local"},
       {"domain_suffix": ["6y9o8.no-mad-sub.one", "dash.knjc.cfd", "dash.pqjc.site", "panel.yins.win", "sni.868001.xyz", "zp1fp.no-mad-sub.one"], "server": "local"},
@@ -52,12 +53,12 @@
     {"tag": "🇦🇺 澳洲手动", "type": "selector", "outbounds": ["${PROXYLOOM_NODES_REGEX:(?i)(澳洲|澳大利亚|悉尼|\\bAU\\b|Australia|Sydney|🇦🇺)}", "🎯 全球直连"]},
     {"tag": "🌐 其他地区", "type": "selector", "outbounds": ["${PROXYLOOM_NODES}", "🎯 全球直连"]},
     {"tag": "🐸 手动选择", "type": "selector", "outbounds": ["${PROXYLOOM_NODES}", "🎯 全球直连"]},
-    {"tag": "⚡ 香港快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(香港|港|\\bHK\\b|Hong\\s*Kong|🇭🇰)}"], "url": "https://www.gstatic.com/generate_204", "interval": "1m", "tolerance": 50, "interrupt_exist_connections": false},
-    {"tag": "⚡ 日本快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(日本|东京|大阪|\\bJP\\b|Japan|Tokyo|Osaka|🇯🇵)}"], "url": "https://www.gstatic.com/generate_204", "interval": "1m", "tolerance": 50, "interrupt_exist_connections": false},
-    {"tag": "⚡ 狮城快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(新加坡|狮城|\\bSG\\b|Singapore|🇸🇬)}"], "url": "https://www.gstatic.com/generate_204", "interval": "1m", "tolerance": 50, "interrupt_exist_connections": false},
-    {"tag": "⚡ 美国快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(美国|洛杉矶|圣何塞|西雅图|纽约|\\bUS\\b|USA|United\\s*States|🇺🇸|🇺🇲)}"], "url": "https://www.gstatic.com/generate_204", "interval": "1m", "tolerance": 50, "interrupt_exist_connections": false},
-    {"tag": "⚡ 台湾快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(台湾|台北|\\bTW\\b|Taiwan|Taipei|🇹🇼)}"], "url": "https://www.gstatic.com/generate_204", "interval": "1m", "tolerance": 50, "interrupt_exist_connections": false},
-    {"tag": "♻️ 自动选择", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_FIRST_32}"], "url": "https://www.gstatic.com/generate_204", "interval": "1m", "tolerance": 50, "interrupt_exist_connections": false},
+    {"tag": "⚡ 香港快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(香港|港|\\bHK\\b|Hong\\s*Kong|🇭🇰)}"], "url": "https://www.gstatic.com/generate_204", "interval": "30s", "tolerance": 50, "interrupt_exist_connections": false},
+    {"tag": "⚡ 日本快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(日本|东京|大阪|\\bJP\\b|Japan|Tokyo|Osaka|🇯🇵)}"], "url": "https://www.gstatic.com/generate_204", "interval": "30s", "tolerance": 50, "interrupt_exist_connections": false},
+    {"tag": "⚡ 狮城快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(新加坡|狮城|\\bSG\\b|Singapore|🇸🇬)}"], "url": "https://www.gstatic.com/generate_204", "interval": "30s", "tolerance": 50, "interrupt_exist_connections": false},
+    {"tag": "⚡ 美国快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(美国|洛杉矶|圣何塞|西雅图|纽约|\\bUS\\b|USA|United\\s*States|🇺🇸|🇺🇲)}"], "url": "https://www.gstatic.com/generate_204", "interval": "30s", "tolerance": 50, "interrupt_exist_connections": false},
+    {"tag": "⚡ 台湾快速", "type": "urltest", "outbounds": ["${PROXYLOOM_HEALTHY_NODES_REGEX_OR_FIRST_8:(?i)(台湾|台北|\\bTW\\b|Taiwan|Taipei|🇹🇼)}"], "url": "https://www.gstatic.com/generate_204", "interval": "30s", "tolerance": 50, "interrupt_exist_connections": false},
+    {"tag": "♻️ 自动选择", "type": "urltest", "outbounds": ["⚡ 香港快速", "⚡ 日本快速", "⚡ 狮城快速", "⚡ 美国快速", "⚡ 台湾快速"], "url": "https://www.gstatic.com/generate_204", "interval": "30s", "tolerance": 50, "interrupt_exist_connections": false},
     {"tag": "🍃 延迟辅助", "type": "selector", "outbounds": ["🚀 默认代理", "🎯 全球直连"]},
     {"tag": "GLOBAL", "type": "selector", "outbounds": ["🚀 默认代理", "🧠 AI", "📹 YouTube", "🧒 YouTube Kids", "🍀 Google", "🛒 Google Play", "👨‍💻 Github", "📲 Telegram", "🎵 TikTok", "🎥 Netflix", "💶 PayPal", "🎮 Steam", "🪟 Microsoft", "🐬 OneDrive", "🍏 Apple", "🐠 漏网之鱼", "⚡ 香港快速", "⚡ 日本快速", "⚡ 狮城快速", "⚡ 美国快速", "⚡ 台湾快速", "🇭🇰 香港手动", "🇯🇵 日本手动", "🇸🇬 狮城手动", "🇺🇲 美国手动", "🇰🇷 韩国手动", "🇹🇼 台湾手动", "🇦🇺 澳洲手动", "🌐 其他地区", "🐸 手动选择", "♻️ 自动选择", "🍃 延迟辅助", "🎯 全球直连"]},
     {"tag": "🎯 全球直连", "type": "direct"}
@@ -66,6 +67,7 @@
     "rules": [
       {"action": "sniff", "sniffer": ["http", "tls", "quic", "dns"]},
       {"inbound": "dns-in", "action": "hijack-dns"},
+      {"rule_set": "adblock-oisd-small", "action": "reject"},
       {"ip_is_private": true, "outbound": "🎯 全球直连"},
       {"rule_set": "geosite-private", "outbound": "🎯 全球直连"},
       {"domain_suffix": ["6y9o8.no-mad-sub.one", "dash.knjc.cfd", "dash.pqjc.site", "panel.yins.win", "sni.868001.xyz", "zp1fp.no-mad-sub.one"], "outbound": "🎯 全球直连"},
@@ -104,6 +106,7 @@
       {"rule_set": "geoip-cn", "outbound": "🎯 全球直连"}
     ],
     "rule_set": [
+      {"tag": "adblock-oisd-small", "type": "remote", "format": "binary", "url": "http://10.10.10.228:18081/rule-assets/adblock-oisd-small.srs", "download_detour": "🎯 全球直连", "update_interval": "6h"},
       {"tag": "geosite-fakeipfilter", "type": "remote", "format": "source", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/qichiyuhub/rule/refs/heads/main/rules/fakeipfilter.json", "download_detour": "🎯 全球直连"},
       {"tag": "geosite-private", "type": "remote", "format": "binary", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/private.srs", "download_detour": "🎯 全球直连"},
       {"tag": "geosite-ai", "type": "remote", "format": "binary", "url": "https://gh-proxy.com/https://raw.githubusercontent.com/MetaCubeX/meta-rules-dat/sing/geo/geosite/category-ai-!cn.srs", "download_detour": "🎯 全球直连"},
